@@ -28,6 +28,7 @@ type Scrapper struct {
 	browser playwright.Browser
 
 	urlReplacer         func(from string) string
+	selectorReturner    func(from string) string
 	htmlElementsRemover func(doc *goquery.Document)
 	plainTextTidier     func(str string) string
 }
@@ -85,6 +86,7 @@ func NewScrapper() (s *Scrapper, err error) {
 				browser: _browser,
 
 				urlReplacer:         defaultURLReplacer,
+				selectorReturner:    defaultSelectorReturner,
 				htmlElementsRemover: defaultHTMLElementsRemover,
 				plainTextTidier:     defaultPlainTextTidier,
 			}, nil
@@ -109,6 +111,11 @@ func (s *Scrapper) SetURLReplacer(replacer func(from string) (to string)) {
 // SetHTMLElementRemover sets the HTML element remover function for the scrapper client.
 func (s *Scrapper) SetHTMLElementRemover(remover func(doc *goquery.Document)) {
 	s.htmlElementsRemover = remover
+}
+
+// SetSelectorReturner sets the HTML element selector returner function for the scrapper client.
+func (s *Scrapper) SetSelectorReturner(returner func(from string) string) {
+	s.selectorReturner = returner
 }
 
 // SetPlainTextTidier sets the plain text tidier function for the scrapper client.
@@ -155,14 +162,23 @@ func (s *Scrapper) CrawlURLs(urls []string, asHTML bool) (crawled map[string]str
 								s.htmlElementsRemover(doc)
 							}
 
+							// get the HTML element name to process
+							var selector string
+							if s.selectorReturner != nil {
+								selector = s.selectorReturner(u)
+							} else {
+								selector = `body`
+							}
+							selected := doc.Find(selector).First()
+
 							if asHTML { // return as HTML
-								if html, err = doc.Html(); err == nil {
+								if html, err = selected.Html(); err == nil {
 									crawled[u] = html
 								} else {
-									errs = append(errs, fmt.Errorf("failed to get content of page '%s' as HTML: %s", u, err))
+									errs = append(errs, fmt.Errorf("failed to get '%s' of page '%s' as HTML: %s", selector, u, err))
 								}
 							} else { // return as plain-text
-								crawled[u] = doc.Text()
+								crawled[u] = selected.Text()
 
 								// tidy plain text
 								if s.plainTextTidier != nil {
@@ -251,6 +267,11 @@ func CrawlURLs(userAgent string, urls []string, asHTML bool) (crawled map[string
 // replace given url `from`, actually doing nothing (default)
 func defaultURLReplacer(from string) string {
 	return from
+}
+
+// return the HTML selector to process for given url `from`, just returning `body` (default)
+func defaultSelectorReturner(from string) string {
+	return `body`
 }
 
 // remove unwanted HTML elements from given document (default)

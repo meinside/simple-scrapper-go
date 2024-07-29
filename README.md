@@ -22,6 +22,7 @@ const (
 
 func main() {
 	urls := []string{
+		"https://x.com/elonmusk/status/1813223978884079966",
 		"https://www.reddit.com/r/IAmA/comments/2rgsan/i_am_elon_musk_ceocto_of_a_rocket_company_ama/",
 	}
 
@@ -33,6 +34,13 @@ func main() {
 				return strings.Replace(url, "www.reddit.com", "old.reddit.com", 1)
 			}
 			return url
+		})
+		client.SetSelectorReturner(func(url string) string {
+			// NOTE: use `div[data-testid="tweetText"]` for `x.com`
+			if strings.Contains(url, "x.com/") {
+				return `div[data-testid="tweetText"]`
+			}
+			return `body`
 		})
 
 		// crawl urls
