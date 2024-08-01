@@ -75,7 +75,7 @@ func TestCrawlerWithURLReplacer(t *testing.T) {
 
 // NOTE: return `div[data-testid="tweetText"]` for `x.com`
 func _selectorReturner(url string) string {
-	if strings.Contains(url, "x.com") {
+	if strings.HasPrefix(url, "https://x.com") {
 		return `div[data-testid="tweetText"]`
 	}
 	return `body`
