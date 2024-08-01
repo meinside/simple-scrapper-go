@@ -17,6 +17,8 @@ import (
 
 const (
 	randomUserAgentPattern = `Mozilla/{{}} (Macintosh; Intel Mac OS X {{}}; rv:{{}}) Gecko/{{}} Firefox/{{}}`
+
+	defaultTimeoutMsecs = 30 * 1000 // 30 seconds
 )
 
 // Scrapper struct
@@ -26,6 +28,8 @@ type Scrapper struct {
 
 	pw      *playwright.Playwright
 	browser playwright.Browser
+
+	timeoutMsecs float64
 
 	urlReplacer         func(from string) string
 	selectorReturner    func(from string) string
@@ -85,6 +89,8 @@ func NewScrapper() (s *Scrapper, err error) {
 				pw:      _pw,
 				browser: _browser,
 
+				timeoutMsecs: float64(defaultTimeoutMsecs),
+
 				urlReplacer:         defaultURLReplacer,
 				selectorReturner:    defaultSelectorReturner,
 				htmlElementsRemover: defaultHTMLElementsRemover,
@@ -101,6 +107,11 @@ func NewScrapper() (s *Scrapper, err error) {
 // SetFixedUserAgent sets the fixed user-agent string for the scrapper client.
 func (s *Scrapper) SetFixedUserAgent(userAgent string) {
 	s.fixedUserAgent = userAgent
+}
+
+// SetTimeoutMsecs sets the timeout (in milliseconds) for the scrapper client.
+func (s *Scrapper) SetTimeoutMsecs(msecs float64) {
+	s.timeoutMsecs = msecs
 }
 
 // SetURLReplacer sets the url replacer function for the scrapper client.
@@ -151,7 +162,9 @@ func (s *Scrapper) CrawlURLs(urls []string, asHTML bool) (crawled map[string]str
 
 				if parsedURL, err = url.Parse(u); err == nil {
 					referrer = parsedURL.Scheme + "://" + parsedURL.Host
+
 					if _, err = page.Goto(u, playwright.PageGotoOptions{
+						Timeout: playwright.Float(s.timeoutMsecs),
 						Referer: playwright.String(referrer),
 					}); err == nil {
 						if html, err = page.Content(); err == nil {
@@ -232,17 +245,17 @@ func (s *Scrapper) Close() (err error) {
 
 // CrawlURLs crawls contents from given `urls`.
 //
-// Pass `userAgent` as an empty string for generating randomized user-agent string.
+// Pass `userAgent` as nil for generating randomized user-agent string.
 //
 // It is just a helper function for convenience.
-func CrawlURLs(userAgent string, urls []string, asHTML bool) (crawled map[string]string, err error) {
+func CrawlURLs(userAgent *string, urls []string, asHTML bool) (crawled map[string]string, err error) {
 	crawled = map[string]string{}
 	errs := []error{}
 
 	var client *Scrapper
 	if client, err = NewScrapper(); err == nil {
-		if len(userAgent) > 0 {
-			client.SetFixedUserAgent(userAgent)
+		if userAgent != nil {
+			client.SetFixedUserAgent(*userAgent)
 		}
 
 		// close things
