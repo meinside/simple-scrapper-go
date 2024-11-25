@@ -36,7 +36,7 @@ func main() {
 			return url
 		})
 		client.SetSelectorReturner(func(url string) string {
-			// NOTE: use `div[data-testid="tweetText"]` for `x.com`
+			// NOTE: select `div[data-testid="tweetText"]` for `x.com`
 			if strings.Contains(url, "x.com/") {
 				return `div[data-testid="tweetText"]`
 			}
