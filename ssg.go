@@ -39,8 +39,11 @@ type Scrapper struct {
 
 // NewScrapper creates a new scrapper client.
 func NewScrapper() (s *Scrapper, err error) {
-	if err = playwright.Install(); err != nil {
-		return nil, fmt.Errorf("failed to install playwright: %s", err)
+	if err = playwright.Install(&playwright.RunOptions{
+		Browsers: []string{"firefox"},
+		Verbose:  false,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to install playwright: %w", err)
 	}
 
 	var _pw *playwright.Playwright
@@ -164,8 +167,9 @@ func (s *Scrapper) CrawlURLs(urls []string, asHTML bool) (crawled map[string]str
 					referrer = parsedURL.Scheme + "://" + parsedURL.Host
 
 					if _, err = page.Goto(u, playwright.PageGotoOptions{
-						Timeout: playwright.Float(s.timeoutMsecs),
-						Referer: playwright.String(referrer),
+						Timeout:   playwright.Float(s.timeoutMsecs),
+						Referer:   playwright.String(referrer),
+						WaitUntil: playwright.WaitUntilStateNetworkidle,
 					}); err == nil {
 						if html, err = page.Content(); err == nil {
 							doc, _ := goquery.NewDocumentFromReader(bytes.NewBuffer([]byte(html)))
@@ -182,13 +186,14 @@ func (s *Scrapper) CrawlURLs(urls []string, asHTML bool) (crawled map[string]str
 							} else {
 								selector = `body`
 							}
+
 							selected := doc.Find(selector).First()
 
 							if asHTML { // return as HTML
 								if html, err = selected.Html(); err == nil {
 									crawled[u] = html
 								} else {
-									errs = append(errs, fmt.Errorf("failed to get '%s' of page '%s' as HTML: %s", selector, u, err))
+									errs = append(errs, fmt.Errorf("failed to get '%s' of page '%s' as HTML: %w", selector, u, err))
 								}
 							} else { // return as plain-text
 								crawled[u] = selected.Text()
@@ -199,20 +204,20 @@ func (s *Scrapper) CrawlURLs(urls []string, asHTML bool) (crawled map[string]str
 								}
 							}
 						} else {
-							errs = append(errs, fmt.Errorf("failed to get content of page '%s': %s", u, err))
+							errs = append(errs, fmt.Errorf("failed to get content of page '%s': %w", u, err))
 						}
 					} else {
-						errs = append(errs, fmt.Errorf("failed to go to page '%s': %s", u, err))
+						errs = append(errs, fmt.Errorf("failed to go to page '%s': %w", u, err))
 					}
 				} else {
-					errs = append(errs, fmt.Errorf("failed to parse url '%s': %s", u, err))
+					errs = append(errs, fmt.Errorf("failed to parse url '%s': %w", u, err))
 				}
 			}
 		} else {
-			errs = append(errs, fmt.Errorf("failed to create page: %s", err))
+			errs = append(errs, fmt.Errorf("failed to create page: %w", err))
 		}
 	} else {
-		errs = append(errs, fmt.Errorf("failed to create browser context: %s", err))
+		errs = append(errs, fmt.Errorf("failed to create browser context: %w", err))
 	}
 
 	if len(errs) > 0 {
@@ -228,12 +233,12 @@ func (s *Scrapper) Close() (err error) {
 
 	err = s.browser.Close()
 	if err != nil {
-		errs = append(errs, fmt.Errorf("failed to close browser: %s", err))
+		errs = append(errs, fmt.Errorf("failed to close browser: %w", err))
 	}
 
 	err = s.pw.Stop()
 	if err != nil {
-		errs = append(errs, fmt.Errorf("failed to stop playwright: %s", err))
+		errs = append(errs, fmt.Errorf("failed to stop playwright: %w", err))
 	}
 
 	if len(errs) > 0 {
@@ -267,7 +272,7 @@ func CrawlURLs(userAgent *string, urls []string, asHTML bool) (crawled map[strin
 
 		return client.CrawlURLs(urls, asHTML)
 	} else {
-		errs = append(errs, fmt.Errorf("failed to create scrapper client: %s", err))
+		errs = append(errs, fmt.Errorf("failed to create scrapper client: %w", err))
 	}
 
 	if len(errs) > 0 {

@@ -26,7 +26,7 @@ func TestCrawler(t *testing.T) {
 
 			for url, txt := range crawled {
 				if !strings.Contains(txt, urlsAndMatchedTexts[url]) {
-					t.Errorf("crawled content from '%s' does not contain expected text '%s'", url, txt)
+					t.Errorf("crawled content from '%s' does not contain expected text '%s'", url, urlsAndMatchedTexts[url])
 				}
 			}
 		} else {
@@ -73,10 +73,10 @@ func TestCrawlerWithURLReplacer(t *testing.T) {
 	}
 }
 
-// NOTE: return `div[data-testid="tweetText"]` for `x.com`
+// NOTE: return `div[data-testid='tweetText'] > span` for `x.com`
 func _selectorReturner(url string) string {
 	if strings.HasPrefix(url, "https://x.com") {
-		return `div[data-testid="tweetText"]`
+		return `article[data-testid='tweet']`
 	}
 	return `body`
 }
