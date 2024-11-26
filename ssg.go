@@ -238,7 +238,7 @@ func (s *Scrapper) readPage(page playwright.Page, url, referrer string, asHTML b
 			return s.readPage(page, url, referrer, asHTML, remainingRetryCount-1)
 		}
 
-		err = fmt.Errorf("all(=%d) retries of reading page '%s': %w", maxRetryCount, url, err)
+		err = fmt.Errorf("all(= %d) retries of reading page '%s' failed: %w", maxRetryCount, url, err)
 	}
 
 	return "", err
