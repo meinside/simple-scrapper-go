@@ -18,7 +18,9 @@ import (
 const (
 	randomUserAgentPattern = `Mozilla/{{}} (Macintosh; Intel Mac OS X {{}}; rv:{{}}) Gecko/{{}} Firefox/{{}}`
 
-	defaultTimeoutMsecs = 30 * 1000 // 30 seconds
+	defaultTimeoutMsecs = 10 * 1000 // 10 seconds
+
+	maxRetryCount = 3
 )
 
 // Scrapper struct
@@ -166,48 +168,11 @@ func (s *Scrapper) CrawlURLs(urls []string, asHTML bool) (crawled map[string]str
 				if parsedURL, err = url.Parse(u); err == nil {
 					referrer = parsedURL.Scheme + "://" + parsedURL.Host
 
-					if _, err = page.Goto(u, playwright.PageGotoOptions{
-						Timeout:   playwright.Float(s.timeoutMsecs),
-						Referer:   playwright.String(referrer),
-						WaitUntil: playwright.WaitUntilStateNetworkidle,
-					}); err == nil {
-						if html, err = page.Content(); err == nil {
-							doc, _ := goquery.NewDocumentFromReader(bytes.NewBuffer([]byte(html)))
-
-							// remove unwanted HTML elements
-							if s.htmlElementsRemover != nil {
-								s.htmlElementsRemover(doc)
-							}
-
-							// get the HTML element name to process
-							var selector string
-							if s.selectorReturner != nil {
-								selector = s.selectorReturner(u)
-							} else {
-								selector = `body`
-							}
-
-							selected := doc.Find(selector).First()
-
-							if asHTML { // return as HTML
-								if html, err = selected.Html(); err == nil {
-									crawled[u] = html
-								} else {
-									errs = append(errs, fmt.Errorf("failed to get '%s' of page '%s' as HTML: %w", selector, u, err))
-								}
-							} else { // return as plain-text
-								crawled[u] = selected.Text()
-
-								// tidy plain text
-								if s.plainTextTidier != nil {
-									crawled[u] = s.plainTextTidier(crawled[u])
-								}
-							}
-						} else {
-							errs = append(errs, fmt.Errorf("failed to get content of page '%s': %w", u, err))
-						}
+					// read page from given url
+					if html, err = s.readPage(page, u, referrer, asHTML, maxRetryCount); err == nil {
+						crawled[u] = html
 					} else {
-						errs = append(errs, fmt.Errorf("failed to go to page '%s': %w", u, err))
+						errs = append(errs, fmt.Errorf("failed to read page: %w", err))
 					}
 				} else {
 					errs = append(errs, fmt.Errorf("failed to parse url '%s': %w", u, err))
@@ -225,6 +190,58 @@ func (s *Scrapper) CrawlURLs(urls []string, asHTML bool) (crawled map[string]str
 	}
 
 	return crawled, err
+}
+
+// read page content
+func (s *Scrapper) readPage(page playwright.Page, url, referrer string, asHTML bool, remainingRetryCount uint) (html string, err error) {
+	if _, err = page.Goto(url, playwright.PageGotoOptions{
+		Timeout:   playwright.Float(s.timeoutMsecs),
+		Referer:   playwright.String(referrer),
+		WaitUntil: playwright.WaitUntilStateNetworkidle,
+	}); err == nil {
+		if html, err = page.Content(); err == nil {
+			doc, _ := goquery.NewDocumentFromReader(bytes.NewBuffer([]byte(html)))
+
+			// remove unwanted HTML elements
+			if s.htmlElementsRemover != nil {
+				s.htmlElementsRemover(doc)
+			}
+
+			// get the HTML element name to process
+			var selector string
+			if s.selectorReturner != nil {
+				selector = s.selectorReturner(url)
+			} else {
+				selector = `body`
+			}
+			selected := doc.Find(selector).First()
+
+			if asHTML { // return as HTML
+				if html, err = selected.Html(); err == nil {
+					return html, nil
+				} else {
+					err = fmt.Errorf("failed to select '%s' of page '%s' as HTML: %w", selector, url, err)
+				}
+			} else { // return as plain-text
+				html = selected.Text()
+				if s.plainTextTidier != nil { // tidy plain text
+					html = s.plainTextTidier(html)
+				}
+
+				return html, nil
+			}
+		} else {
+			err = fmt.Errorf("failed to get page content of '%s': %w", url, err)
+		}
+	} else {
+		if remainingRetryCount > 0 {
+			return s.readPage(page, url, referrer, asHTML, remainingRetryCount-1)
+		}
+
+		err = fmt.Errorf("all(=%d) retries of reading page '%s': %w", maxRetryCount, url, err)
+	}
+
+	return "", err
 }
 
 // Close closes the scrapper client.
