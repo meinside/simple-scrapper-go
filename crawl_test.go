@@ -41,6 +41,26 @@ func TestCrawler(t *testing.T) {
 	}
 }
 
+func TestCrawlerTimingOut(t *testing.T) {
+	noSuchURLs := []string{
+		"https://no-such-url.nowhere",
+	}
+
+	if client, err := NewScrapper(); err == nil {
+		client.SetSelectorReturner(_selectorReturner)
+
+		if _, err := client.CrawlURLs(noSuchURLs, false); err == nil {
+			t.Errorf("should have failed with some error")
+		}
+
+		if err := client.Close(); err != nil {
+			t.Errorf("failed to close scrapper: %s", err)
+		}
+	} else {
+		t.Errorf("failed to create a new scrapper: %s", err)
+	}
+}
+
 func TestCrawlerWithURLReplacer(t *testing.T) {
 	url := "https://www.reddit.com/r/IAmA/comments/2rgsan/i_am_elon_musk_ceocto_of_a_rocket_company_ama/"
 	matched := "I am Elon Musk, CEO/CTO of a rocket company, AMA! "
