@@ -62,7 +62,7 @@ func main() {
 
 ## Known Issues
 
-- [ ] Scrapping reddit's URLs often fails.
+- [ ] Scrapping reddit's URLs mostly fails.
 
 ## License
 
