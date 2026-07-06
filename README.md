@@ -2,7 +2,7 @@
 
 A simple web scrapper written in Golang.
 
-Fetch contents from URLs with [headless browsers](https://github.com/playwright-community/playwright-go), and remove unwanted elements from them with [goquery](https://github.com/PuerkitoBio/goquery) & etc..
+Fetch contents from URLs with [headless browsers](https://github.com/mxschmitt/playwright-go), and remove unwanted elements from them with [goquery](https://github.com/PuerkitoBio/goquery) & etc..
 
 ## Usage
 
